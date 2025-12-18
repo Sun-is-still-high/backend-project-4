@@ -1,0 +1,2 @@
+### Hexlet tests and linter status:
+[![Actions Status](https://github.com/Sun-is-still-high/backend-project-4/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/Sun-is-still-high/backend-project-4/actions)
