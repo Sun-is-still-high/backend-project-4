@@ -34,6 +34,45 @@ const generateAssetFileName = (url, assetPath) => {
   return `${formatName(fullPath)}.html`;
 };
 
+const handleError = (error, context) => {
+  log('error occurred: %s', error.message);
+
+  if (error.response) {
+    const { status, config } = error.response;
+    const errorMessage = `Request failed with status code ${status}: ${config.url}`;
+    log('HTTP error: %s', errorMessage);
+    const newError = new Error(errorMessage);
+    newError.code = status;
+    throw newError;
+  }
+
+  if (error.request) {
+    const errorMessage = `Network error: ${error.message} (${context})`;
+    log('Network error: %s', errorMessage);
+    const newError = new Error(errorMessage);
+    newError.code = 'ENETWORK';
+    throw newError;
+  }
+
+  if (error.code === 'ENOENT') {
+    const errorMessage = `ENOENT: no such file or directory '${error.path || context}'`;
+    log('File system error: %s', errorMessage);
+    const newError = new Error(errorMessage);
+    newError.code = 'ENOENT';
+    throw newError;
+  }
+
+  if (error.code === 'EACCES' || error.code === 'EPERM') {
+    const errorMessage = `${error.code}: permission denied '${error.path || context}'`;
+    log('Permission error: %s', errorMessage);
+    const newError = new Error(errorMessage);
+    newError.code = error.code;
+    throw newError;
+  }
+
+  throw error;
+};
+
 const downloadAsset = (assetUrl, assetPath) => {
   log('downloading asset: %s', assetUrl);
   return axios
@@ -44,7 +83,8 @@ const downloadAsset = (assetUrl, assetPath) => {
     })
     .then(() => {
       log('asset saved to: %s', assetPath);
-    });
+    })
+    .catch((error) => handleError(error, assetUrl));
 };
 
 const resourceMapping = [
@@ -69,6 +109,7 @@ const pageLoader = (url, outputDir = process.cwd()) => {
   const assets = [];
 
   return axios.get(url)
+    .catch((error) => handleError(error, url))
     .then((response) => {
       log('page loaded, status: %d', response.status);
       $ = cheerio.load(response.data);
@@ -100,7 +141,8 @@ const pageLoader = (url, outputDir = process.cwd()) => {
       log('found %d local resources', assets.length);
 
       if (assets.length === 0) {
-        return fs.writeFile(filePath, $.html());
+        return fs.writeFile(filePath, $.html())
+          .catch((error) => handleError(error, filePath));
       }
 
       log('creating assets directory: %s', assetsDirPath);
@@ -109,7 +151,8 @@ const pageLoader = (url, outputDir = process.cwd()) => {
         .then(() => {
           log('all assets downloaded');
           return fs.writeFile(filePath, $.html());
-        });
+        })
+        .catch((error) => handleError(error, filePath));
     })
     .then(() => {
       log('page saved to: %s', filePath);

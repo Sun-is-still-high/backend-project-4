@@ -83,26 +83,6 @@ describe('page-loader', () => {
     }
   });
 
-  test('should handle network errors', async () => {
-    const url = 'https://nonexistent.com/page';
-
-    nock('https://nonexistent.com')
-      .get('/page')
-      .replyWithError('Network error');
-
-    await expect(pageLoader(url, tempDir)).rejects.toThrow();
-  });
-
-  test('should handle 404 errors', async () => {
-    const url = 'https://example.com/notfound';
-
-    nock('https://example.com')
-      .get('/notfound')
-      .reply(404);
-
-    await expect(pageLoader(url, tempDir)).rejects.toThrow();
-  });
-
   test('should download all local resources and update HTML links', async () => {
     const url = 'https://ru.hexlet.io/courses';
 
@@ -205,5 +185,74 @@ describe('page-loader', () => {
 
     expect(actualHtml).toContain('href="https://cdn2.hexlet.io/assets/menu.css"');
     expect(actualHtml).toContain('src="https://js.stripe.com/v3/"');
+  });
+
+  describe('error handling', () => {
+    test('should throw error on network failure', async () => {
+      const url = 'https://nonexistent.com/page';
+
+      nock('https://nonexistent.com')
+        .get('/page')
+        .replyWithError('getaddrinfo ENOTFOUND nonexistent.com');
+
+      await expect(pageLoader(url, tempDir)).rejects.toThrow(/nonexistent.com/);
+    });
+
+    test('should throw error on 404 response', async () => {
+      const url = 'https://example.com/notfound';
+
+      nock('https://example.com')
+        .get('/notfound')
+        .reply(404, 'Not Found');
+
+      await expect(pageLoader(url, tempDir)).rejects.toThrow(/404/);
+    });
+
+    test('should throw error on 500 response', async () => {
+      const url = 'https://example.com/error';
+
+      nock('https://example.com')
+        .get('/error')
+        .reply(500, 'Internal Server Error');
+
+      await expect(pageLoader(url, tempDir)).rejects.toThrow(/500/);
+    });
+
+    test('should throw error when output directory does not exist', async () => {
+      const url = 'https://example.com/page';
+      const nonExistentDir = '/nonexistent/directory/path';
+
+      nock('https://example.com')
+        .get('/page')
+        .reply(200, '<html></html>');
+
+      await expect(pageLoader(url, nonExistentDir)).rejects.toThrow(/ENOENT/);
+    });
+
+    test('should throw error when asset download fails', async () => {
+      const url = 'https://example.com/page';
+      const htmlWithImage = '<html><body><img src="/image.png"></body></html>';
+
+      nock('https://example.com')
+        .get('/page')
+        .reply(200, htmlWithImage)
+        .get('/image.png')
+        .reply(404, 'Not Found');
+
+      await expect(pageLoader(url, tempDir)).rejects.toThrow(/404/);
+    });
+
+    test('should throw error when asset network fails', async () => {
+      const url = 'https://example.com/page';
+      const htmlWithImage = '<html><body><img src="/image.png"></body></html>';
+
+      nock('https://example.com')
+        .get('/page')
+        .reply(200, htmlWithImage)
+        .get('/image.png')
+        .replyWithError('Connection reset');
+
+      await expect(pageLoader(url, tempDir)).rejects.toThrow();
+    });
   });
 });
