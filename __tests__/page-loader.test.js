@@ -14,10 +14,14 @@ nock.disableNetConnect();
 
 describe('page-loader', () => {
   let tempDir;
-  let expectedContent;
+  let beforeHtml;
+  let afterHtml;
+  let pngContent;
 
   beforeAll(async () => {
-    expectedContent = await fs.readFile(getFixturePath('expected.html'), 'utf-8');
+    beforeHtml = await fs.readFile(getFixturePath('before.html'), 'utf-8');
+    afterHtml = await fs.readFile(getFixturePath('after.html'), 'utf-8');
+    pngContent = await fs.readFile(getFixturePath('nodejs.png'));
   });
 
   beforeEach(async () => {
@@ -33,14 +37,15 @@ describe('page-loader', () => {
 
     nock('https://ru.hexlet.io')
       .get('/courses')
-      .reply(200, expectedContent);
+      .reply(200, '<html></html>');
 
     const filepath = await pageLoader(url, tempDir);
 
     expect(filepath).toBe(path.join(tempDir, 'ru-hexlet-io-courses.html'));
 
     const actualContent = await fs.readFile(filepath, 'utf-8');
-    expect(actualContent).toBe(expectedContent);
+    // cheerio normalizes HTML
+    expect(actualContent).toBe('<html><head></head><body></body></html>');
   });
 
   test('should generate correct filename from URL', async () => {
@@ -91,5 +96,46 @@ describe('page-loader', () => {
       .reply(404);
 
     await expect(pageLoader(url, tempDir)).rejects.toThrow();
+  });
+
+  test('should download images and update HTML links', async () => {
+    const url = 'https://ru.hexlet.io/courses';
+
+    nock('https://ru.hexlet.io')
+      .get('/courses')
+      .reply(200, beforeHtml)
+      .get('/assets/professions/nodejs.png')
+      .reply(200, pngContent, { 'Content-Type': 'image/png' });
+
+    const filepath = await pageLoader(url, tempDir);
+
+    // Check HTML was modified correctly
+    const actualHtml = await fs.readFile(filepath, 'utf-8');
+    expect(actualHtml).toBe(afterHtml);
+
+    // Check image was downloaded
+    const imagePath = path.join(
+      tempDir,
+      'ru-hexlet-io-courses_files',
+      'ru-hexlet-io-assets-professions-nodejs.png'
+    );
+    const actualImage = await fs.readFile(imagePath);
+    expect(actualImage).toEqual(pngContent);
+  });
+
+  test('should create _files directory for resources', async () => {
+    const url = 'https://ru.hexlet.io/courses';
+
+    nock('https://ru.hexlet.io')
+      .get('/courses')
+      .reply(200, beforeHtml)
+      .get('/assets/professions/nodejs.png')
+      .reply(200, pngContent, { 'Content-Type': 'image/png' });
+
+    await pageLoader(url, tempDir);
+
+    const filesDir = path.join(tempDir, 'ru-hexlet-io-courses_files');
+    const stat = await fs.stat(filesDir);
+    expect(stat.isDirectory()).toBe(true);
   });
 });
