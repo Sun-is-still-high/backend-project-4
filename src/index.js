@@ -21,17 +21,25 @@ const generateAssetsDirName = (url) => {
 };
 
 const generateAssetFileName = (url, assetPath) => {
-  const urlObj = new URL(url);
   const assetUrl = new URL(assetPath, url);
-  const fullPath = `${urlObj.hostname}${assetUrl.pathname}`;
+  const fullPath = `${assetUrl.hostname}${assetUrl.pathname}`;
   const ext = path.extname(assetUrl.pathname);
-  const nameWithoutExt = fullPath.slice(0, -ext.length);
-  return `${formatName(nameWithoutExt)}${ext}`;
+  if (ext) {
+    const nameWithoutExt = fullPath.slice(0, -ext.length);
+    return `${formatName(nameWithoutExt)}${ext}`;
+  }
+  return `${formatName(fullPath)}.html`;
 };
 
 const downloadAsset = (assetUrl, assetPath) => axios
   .get(assetUrl, { responseType: 'arraybuffer' })
   .then((response) => fs.writeFile(assetPath, response.data));
+
+const resourceMapping = [
+  { tag: 'img', attr: 'src' },
+  { tag: 'link', attr: 'href' },
+  { tag: 'script', attr: 'src' },
+];
 
 const pageLoader = (url, outputDir = process.cwd()) => {
   const fileName = generateFileName(url);
@@ -47,21 +55,22 @@ const pageLoader = (url, outputDir = process.cwd()) => {
     .then((response) => {
       $ = cheerio.load(response.data);
 
-      $('img[src]').each((_i, elem) => {
-        const src = $(elem).attr('src');
-        if (!src) return;
+      resourceMapping.forEach(({ tag, attr }) => {
+        $(`${tag}[${attr}]`).each((_i, elem) => {
+          const attrValue = $(elem).attr(attr);
+          if (!attrValue) return;
 
-        const assetUrl = new URL(src, url);
-        // Only download images from the same host
-        if (assetUrl.hostname !== baseUrl.hostname) return;
+          const assetUrl = new URL(attrValue, url);
+          if (assetUrl.hostname !== baseUrl.hostname) return;
 
-        const assetFileName = generateAssetFileName(url, src);
-        const newSrc = `${assetsDirName}/${assetFileName}`;
+          const assetFileName = generateAssetFileName(url, attrValue);
+          const newAttrValue = `${assetsDirName}/${assetFileName}`;
 
-        $(elem).attr('src', newSrc);
-        assets.push({
-          url: assetUrl.href,
-          filePath: path.join(assetsDirPath, assetFileName),
+          $(elem).attr(attr, newAttrValue);
+          assets.push({
+            url: assetUrl.href,
+            filePath: path.join(assetsDirPath, assetFileName),
+          });
         });
       });
 

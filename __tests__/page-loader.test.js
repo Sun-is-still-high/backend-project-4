@@ -17,11 +17,17 @@ describe('page-loader', () => {
   let beforeHtml;
   let afterHtml;
   let pngContent;
+  let cssContent;
+  let jsContent;
+  let canonicalContent;
 
   beforeAll(async () => {
     beforeHtml = await fs.readFile(getFixturePath('before.html'), 'utf-8');
     afterHtml = await fs.readFile(getFixturePath('after.html'), 'utf-8');
     pngContent = await fs.readFile(getFixturePath('nodejs.png'));
+    cssContent = 'body { background: red; }';
+    jsContent = 'console.log("hello");';
+    canonicalContent = '<html><body>Canonical page</body></html>';
   });
 
   beforeEach(async () => {
@@ -44,7 +50,6 @@ describe('page-loader', () => {
     expect(filepath).toBe(path.join(tempDir, 'ru-hexlet-io-courses.html'));
 
     const actualContent = await fs.readFile(filepath, 'utf-8');
-    // cheerio normalizes HTML
     expect(actualContent).toBe('<html><head></head><body></body></html>');
   });
 
@@ -98,29 +103,56 @@ describe('page-loader', () => {
     await expect(pageLoader(url, tempDir)).rejects.toThrow();
   });
 
-  test('should download images and update HTML links', async () => {
+  test('should download all local resources and update HTML links', async () => {
     const url = 'https://ru.hexlet.io/courses';
 
     nock('https://ru.hexlet.io')
       .get('/courses')
       .reply(200, beforeHtml)
       .get('/assets/professions/nodejs.png')
-      .reply(200, pngContent, { 'Content-Type': 'image/png' });
+      .reply(200, pngContent, { 'Content-Type': 'image/png' })
+      .get('/assets/application.css')
+      .reply(200, cssContent, { 'Content-Type': 'text/css' })
+      .get('/courses')
+      .reply(200, canonicalContent)
+      .get('/packs/js/runtime.js')
+      .reply(200, jsContent, { 'Content-Type': 'application/javascript' });
 
     const filepath = await pageLoader(url, tempDir);
 
-    // Check HTML was modified correctly
     const actualHtml = await fs.readFile(filepath, 'utf-8');
     expect(actualHtml).toBe(afterHtml);
 
-    // Check image was downloaded
     const imagePath = path.join(
       tempDir,
       'ru-hexlet-io-courses_files',
-      'ru-hexlet-io-assets-professions-nodejs.png'
+      'ru-hexlet-io-assets-professions-nodejs.png',
     );
     const actualImage = await fs.readFile(imagePath);
     expect(actualImage).toEqual(pngContent);
+    const cssPath = path.join(
+      tempDir,
+      'ru-hexlet-io-courses_files',
+      'ru-hexlet-io-assets-application.css',
+    );
+    const actualCss = await fs.readFile(cssPath, 'utf-8');
+    expect(actualCss).toBe(cssContent);
+
+    const jsPath = path.join(
+      tempDir,
+      'ru-hexlet-io-courses_files',
+      'ru-hexlet-io-packs-js-runtime.js',
+    );
+    const actualJs = await fs.readFile(jsPath, 'utf-8');
+    expect(actualJs).toBe(jsContent);
+
+    const canonicalPath = path.join(
+      tempDir,
+      'ru-hexlet-io-courses_files',
+      'ru-hexlet-io-courses.html',
+    );
+    const actualCanonical = await fs.readFile(canonicalPath, 'utf-8');
+    expect(actualCanonical).toBe(canonicalContent);
   });
 
   test('should create _files directory for resources', async () => {
@@ -130,12 +162,48 @@ describe('page-loader', () => {
       .get('/courses')
       .reply(200, beforeHtml)
       .get('/assets/professions/nodejs.png')
-      .reply(200, pngContent, { 'Content-Type': 'image/png' });
+      .reply(200, pngContent, { 'Content-Type': 'image/png' })
+      .get('/assets/application.css')
+      .reply(200, cssContent)
+      .get('/courses')
+      .reply(200, canonicalContent)
+      .get('/packs/js/runtime.js')
+      .reply(200, jsContent);
 
     await pageLoader(url, tempDir);
 
     const filesDir = path.join(tempDir, 'ru-hexlet-io-courses_files');
     const stat = await fs.stat(filesDir);
     expect(stat.isDirectory()).toBe(true);
+  });
+
+  test('should not download resources from different hosts', async () => {
+    const url = 'https://ru.hexlet.io/courses';
+
+    nock('https://ru.hexlet.io')
+      .get('/courses')
+      .reply(200, beforeHtml)
+      .get('/assets/professions/nodejs.png')
+      .reply(200, pngContent)
+      .get('/assets/application.css')
+      .reply(200, cssContent)
+      .get('/courses')
+      .reply(200, canonicalContent)
+      .get('/packs/js/runtime.js')
+      .reply(200, jsContent);
+
+    nock('https://cdn2.hexlet.io')
+      .get('/assets/menu.css')
+      .reply(200, 'external css');
+
+    nock('https://js.stripe.com')
+      .get('/v3/')
+      .reply(200, 'external js');
+
+    const filepath = await pageLoader(url, tempDir);
+    const actualHtml = await fs.readFile(filepath, 'utf-8');
+
+    expect(actualHtml).toContain('href="https://cdn2.hexlet.io/assets/menu.css"');
+    expect(actualHtml).toContain('src="https://js.stripe.com/v3/"');
   });
 });
