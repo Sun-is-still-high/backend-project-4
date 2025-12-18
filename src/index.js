@@ -1,6 +1,7 @@
 import axios from 'axios';
 import debug from 'debug';
 import fs from 'fs/promises';
+import Listr from 'listr';
 import path from 'path';
 import * as cheerio from 'cheerio';
 
@@ -147,7 +148,15 @@ const pageLoader = (url, outputDir = process.cwd()) => {
 
       log('creating assets directory: %s', assetsDirPath);
       return fs.mkdir(assetsDirPath, { recursive: true })
-        .then(() => Promise.all(assets.map((asset) => downloadAsset(asset.url, asset.filePath))))
+        .then(() => {
+          const tasks = assets.map((asset) => ({
+            title: asset.url,
+            task: () => downloadAsset(asset.url, asset.filePath),
+          }));
+
+          const listr = new Listr(tasks, { concurrent: true });
+          return listr.run();
+        })
         .then(() => {
           log('all assets downloaded');
           return fs.writeFile(filePath, $.html());
