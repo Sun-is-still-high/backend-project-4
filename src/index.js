@@ -109,7 +109,9 @@ const pageLoader = (url, outputDir = process.cwd()) => {
   let $;
   const assets = [];
 
-  return axios.get(url)
+  return fs.access(outputDir)
+    .catch((error) => handleError(error, outputDir))
+    .then(() => axios.get(url))
     .catch((error) => handleError(error, url))
     .then((response) => {
       log('page loaded, status: %d', response.status);
