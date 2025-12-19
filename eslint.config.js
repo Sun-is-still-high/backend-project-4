@@ -1,6 +1,6 @@
-import globals from 'globals';
-import js from '@eslint/js';
-import stylistic from '@stylistic/eslint-plugin';
+import globals from 'globals'
+import js from '@eslint/js'
+import stylistic from '@stylistic/eslint-plugin'
 
 export default [
   js.configs.recommended,
@@ -18,9 +18,11 @@ export default [
     },
     rules: {
       'no-console': 'off',
+      '@stylistic/semi': ['error', 'never'],
+      '@stylistic/arrow-parens': ['error', 'as-needed'],
     },
   },
   {
     ignores: ['node_modules/', 'coverage/'],
   },
-];
+]
