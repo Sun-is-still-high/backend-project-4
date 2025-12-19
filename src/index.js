@@ -7,18 +7,18 @@ import * as cheerio from 'cheerio'
 
 const log = debug('page-loader')
 
-const formatName = str => str
+const formatName = (str) => str
   .replace(/[^a-zA-Z0-9]/g, '-')
   .replace(/-+/g, '-')
   .replace(/^-|-$/g, '')
 
-const generateFileName = url => {
+const generateFileName = (url) => {
   const urlObj = new URL(url)
   const urlWithoutProtocol = `${urlObj.hostname}${urlObj.pathname}`
   return `${formatName(urlWithoutProtocol)}.html`
 }
 
-const generateAssetsDirName = url => {
+const generateAssetsDirName = (url) => {
   const urlObj = new URL(url)
   const urlWithoutProtocol = `${urlObj.hostname}${urlObj.pathname}`
   return `${formatName(urlWithoutProtocol)}_files`
@@ -78,14 +78,14 @@ const downloadAsset = (assetUrl, assetPath) => {
   log('downloading asset: %s', assetUrl)
   return axios
     .get(assetUrl, { responseType: 'arraybuffer' })
-    .then(response => {
+    .then((response) => {
       log('asset downloaded, size: %d bytes', response.data.length)
       return fs.writeFile(assetPath, response.data)
     })
     .then(() => {
       log('asset saved to: %s', assetPath)
     })
-    .catch(error => handleError(error, assetUrl))
+    .catch((error) => handleError(error, assetUrl))
 }
 
 const resourceMapping = [
@@ -110,10 +110,10 @@ const pageLoader = (url, outputDir = process.cwd()) => {
   const assets = []
 
   return fs.access(outputDir)
-    .catch(error => handleError(error, outputDir))
+    .catch((error) => handleError(error, outputDir))
     .then(() => axios.get(url))
-    .catch(error => handleError(error, url))
-    .then(response => {
+    .catch((error) => handleError(error, url))
+    .then((response) => {
       log('page loaded, status: %d', response.status)
       $ = cheerio.load(response.data)
 
@@ -145,13 +145,13 @@ const pageLoader = (url, outputDir = process.cwd()) => {
 
       if (assets.length === 0) {
         return fs.writeFile(filePath, $.html())
-          .catch(error => handleError(error, filePath))
+          .catch((error) => handleError(error, filePath))
       }
 
       log('creating assets directory: %s', assetsDirPath)
       return fs.mkdir(assetsDirPath, { recursive: true })
         .then(() => {
-          const tasks = assets.map(asset => ({
+          const tasks = assets.map((asset) => ({
             title: asset.url,
             task: () => downloadAsset(asset.url, asset.filePath),
           }))
@@ -163,7 +163,7 @@ const pageLoader = (url, outputDir = process.cwd()) => {
           log('all assets downloaded')
           return fs.writeFile(filePath, $.html())
         })
-        .catch(error => handleError(error, filePath))
+        .catch((error) => handleError(error, filePath))
     })
     .then(() => {
       log('page saved to: %s', filePath)

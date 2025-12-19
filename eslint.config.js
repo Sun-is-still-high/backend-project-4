@@ -19,7 +19,8 @@ export default [
     rules: {
       'no-console': 'off',
       '@stylistic/semi': ['error', 'never'],
-      '@stylistic/arrow-parens': ['error', 'as-needed'],
+      '@stylistic/arrow-parens': ['error', 'always'],
+      '@stylistic/brace-style': ['error', '1tbs'],
     },
   },
   {

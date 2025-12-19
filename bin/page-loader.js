@@ -11,10 +11,10 @@ program
   .option('-o, --output [dir]', 'output dir', process.cwd())
   .action((url, options) => {
     pageLoader(url, options.output)
-      .then(filepath => {
+      .then((filepath) => {
         console.log(filepath)
       })
-      .catch(error => {
+      .catch((error) => {
         console.error(error.message)
         process.exit(1)
       })
