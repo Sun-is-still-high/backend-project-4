@@ -78,7 +78,8 @@ describe('page-loader', () => {
     try {
       const filepath = await pageLoader(url)
       expect(filepath).toBe(path.join(tempDir, 'test-com-page.html'))
-    } finally {
+    }
+ finally {
       process.chdir(originalCwd)
     }
   })

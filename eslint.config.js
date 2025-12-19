@@ -20,7 +20,7 @@ export default [
       'no-console': 'off',
       '@stylistic/semi': ['error', 'never'],
       '@stylistic/arrow-parens': ['error', 'as-needed', { requireForBlockBody: true }],
-      '@stylistic/brace-style': ['error', '1tbs'],
+      '@stylistic/brace-style': ['error', 'stroustrup'],
     },
   },
   {
